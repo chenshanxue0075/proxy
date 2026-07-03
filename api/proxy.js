@@ -1,11 +1,8 @@
-export const config = { runtime: 'edge' };
-
-export default async function handler(req) {
-  const url = new URL(req.url);
-  const target = url.searchParams.get('url');
+export default async function handler(req, res) {
+  const target = req.query.url;
   
   if (!target) {
-    return new Response('missing url', { status: 400 });
+    return res.status(400).send('missing url');
   }
 
   const targetUrl = decodeURIComponent(target);
@@ -17,16 +14,17 @@ export default async function handler(req) {
   };
   if (isSina) headers['Host'] = 'hq.sinajs.cn';
 
-  const res = await fetch(targetUrl, { headers });
-  const buffer = await res.arrayBuffer();
-  const decoder = new TextDecoder(isSina ? 'gbk' : 'utf-8');
-  const text = decoder.decode(buffer);
+  try {
+    const response = await fetch(targetUrl, { headers });
+    const buffer = await response.arrayBuffer();
+    const decoder = new TextDecoder(isSina ? 'gbk' : 'utf-8');
+    const text = decoder.decode(buffer);
 
-  return new Response(text, {
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET,OPTIONS',
-    }
-  });
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+    res.setHeader('Content-Type', 'text/plain;charset=utf-8');
+    res.status(200).send(text);
+  } catch (e) {
+    res.status(500).send('proxy error: ' + e.message);
+  }
 }
